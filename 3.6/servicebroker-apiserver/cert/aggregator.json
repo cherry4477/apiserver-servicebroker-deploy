@@ -1,0 +1,1 @@
+{"CN":"kube-aggregator","hosts":["kube-aggregator.aggregator","kube-aggregator.aggregator.svc"],"key":{"algo":"rsa","size":2048}}

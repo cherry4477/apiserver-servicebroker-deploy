@@ -1,0 +1,82 @@
+apiVersion: v1
+kind: List
+items:
+
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: kube-aggregator
+    labels:
+      api: kube-aggregator
+      apiserver: "true"
+  spec:
+    ports:
+    - port: 443
+      protocol: TCP
+      targetPort: 8443
+    selector:
+      api: kube-aggregator
+      apiserver: "true"
+
+- apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+    name: kube-aggregator
+    labels:
+      api: kube-aggregator
+      apiserver: "true"
+  spec:
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          api: kube-aggregator
+          apiserver: "true"
+      spec:
+        serviceAccountName: "kube-aggregator"
+        containers:
+        - name: aggregator
+          image: registry.new.dataos.io/datafoundry/kube-aggregator:latest
+          volumeMounts:
+          - name: aggregator-certs
+            mountPath: /aggregator.local.config/certificates
+            readOnly: true
+          - name: requestheader-certs
+            mountPath: /requestheader.local.config/certificates
+            readOnly: true
+          - name: requestheader-cas
+            mountPath: /requestheader-ca.local.config/certificates
+            readOnly: true
+          command:
+          - "./apiserver"
+          args:
+          - "--etcd-servers=http://etcd-for-apiserver:2379"
+          - "--etcd-prefix=/registry/asiainfo.com"
+          - "--etcd-cafile="
+          - "--etcd-certfile="
+          - "--etcd-keyfile="
+          - "--secure-port=8443"
+          - "--tls-cert-file=/aggregator.local.config/certificates/aggregator.pem "
+          - "--tls-private-key-file=/aggregator.local.config/certificates/aggregator-key.pem"
+          - "--proxy-client-cert-file=/requestheader.local.config/certificates/requestheader.pem"
+          - "--proxy-client-key-file=/requestheader.local.config/certificates/requestheader-key.pem"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+        volumes:
+        - name: aggregator-certs
+          secret:
+            secretName: aggregator
+        - name: requestheader-certs
+          secret:
+            secretName: requestheader
+        - name: requestheader-cas
+          secret:
+            secretName: requestheader-ca
+
+
+        \
+         \
+         \
+         \

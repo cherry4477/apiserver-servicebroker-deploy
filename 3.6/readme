@@ -1,0 +1,273 @@
+======== Install cfssl and cfssljson =======================
+	
+	curl -s -L -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+	curl -s -L -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+	chmod +x cfssl
+	chmod +x cfssljson
+
+	# it is best to put cfssl and cfssljson in PATH
+
+	# If the two files doesn't work. It is best to rebuid them from source.
+	# go get github.com/cloudflare/cfssl
+
+======== Create ETCD cluster =======================
+
+	# This is a single node etcd.
+	# It is best to create a 3 or 5 nodes cluster.
+	oc create -f ./etcd
+	
+	# Below apiserver.yaml and kube-arrgregator.yaml need the ETCD infomation.
+
+======== Prepare 3 CAs =======================
+
+1. aggregator CA certification and key 
+
+   must be the same as the openshift main CA.
+   copied from /etc/origin/master/{ca.crt,ca.key} in the openshift 3.6 master server.
+   
+   used to sign aggregator server certificates.
+   used by servicebroker contoler to verify aggregator server certificates.
+
+2. requestheader CA
+
+   used to sign the aggregator (as client) certificates.
+   used by apiserver to verify aggregator (as client) certificates.
+
+3. apiserver CA
+
+   used to sign the apiserver server certificates.
+   used by aggregator (as client) to verify apiserver server certificates.
+
+========== Create 3 pairs of key and certification =================
+
+    # namespace NS may need modified
+    NS=aggregator
+
+    # apiserver server key and cert
+    KEYNAME=apiserver
+    CA="-ca=ca-$KEYNAME/ca.pem -ca-key=ca-$KEYNAME/ca-key.pem -config=ca-$KEYNAME/ca-config.json -profile=server"
+    SVC=apiserver-servicebroker
+    DOMAINS=\"${SVC}.${NS}\",\"${SVC}.${NS}.svc\"
+    echo \{\"CN\":\"${SVC}\",\"hosts\":[${DOMAINS}],\"key\":\{\"algo\":\"rsa\",\"size\":2048\}\} > $KEYNAME.json
+    cat $KEYNAME.json | cfssl gencert ${CA} - | cfssljson -bare $KEYNAME
+    mkdir -p ./servicebroker-apiserver/cert
+    mv $KEYNAME* ./servicebroker-apiserver/cert
+
+    # aggregator (as server) key and certtificate
+    KEYNAME=aggregator
+    CA="-ca=ca-$KEYNAME/ca.crt -ca-key=ca-$KEYNAME/ca.key -config=ca-$KEYNAME/ca-config.json -profile=server"
+    SVC=kube-aggregator
+    DOMAINS=\"${SVC}.${NS}\",\"${SVC}.${NS}.svc\"
+    echo \{\"CN\":\"${SVC}\",\"hosts\":[${DOMAINS}],\"key\":\{\"algo\":\"rsa\",\"size\":2048\}\} > $KEYNAME.json
+    cat $KEYNAME.json | cfssl gencert ${CA} - | cfssljson -bare $KEYNAME
+    mkdir -p ./servicebroker-apiserver/cert
+    mv $KEYNAME* ./servicebroker-apiserver/cert
+
+    # requestheader (aggregator as client) key and certificate
+    KEYNAME=requestheader
+    CA="-ca=ca-$KEYNAME/ca.pem -ca-key=ca-$KEYNAME/ca-key.pem -config=ca-$KEYNAME/ca-config.json -profile=client"
+    SVC=requestheader-client
+    echo \{\"CN\":\"${SVC}\",\"key\":\{\"algo\":\"rsa\",\"size\":2048\}\} > $KEYNAME.json
+    cat $KEYNAME.json | cfssl gencert ${CA} - | cfssljson -bare $KEYNAME
+    mkdir -p ./servicebroker-apiserver/cert
+    mv $KEYNAME* ./servicebroker-apiserver/cert
+
+========== Create 3 secrets for above 3 pairs of key and certificate =================
+
+# namespace NS may need modified
+NS=aggregator
+
+
+	# create secret for apiserver server key and cert
+	KEYNAME=apiserver
+	oc create secret generic $KEYNAME -n ${NS} \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME.pem \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME-key.pem
+
+	# create secret for aggregator (as server) key and certtificate
+	KEYNAME=aggregator
+	oc create secret generic $KEYNAME -n ${NS} \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME.pem \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME-key.pem
+
+	# create secrect for requestheader (aggregator as client) key and certificate
+	KEYNAME=requestheader
+	oc create secret generic $KEYNAME -n ${NS} \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME.pem \
+		--from-file=./servicebroker-apiserver/cert/$KEYNAME-key.pem
+
+============ create configmap extension-apiserver-authentication ===============
+
+This configmap will be used by apiserver and aggregator.
+
+    cp servicebroker-apiserver/templates/configmap-extension-apiserver-authentication.yaml  servicebroker-apiserver/
+
+modify some fileds in servicebroker-apiserver/configmap-extension-apiserver-authentication.yaml  (alignment is important)
+* OPENSHIFT-CA:     content of ca-aggregator/ca.crt
+* REQUESTHEADER-CA: content of ca-requestheader/ca.pem
+
+    oc create -f servicebroker-apiserver/configmap-extension-apiserver-authentication.yaml
+
+=========== create role extension-apiserver-authentication-reader ============
+
+(This step will fail in OpenShift 3.6.)
+
+    # namespace NS may need modified
+    NS=aggregator
+
+    cp servicebroker-apiserver/templates/serviceaccounts-and-roles-and-bindings.yaml  servicebroker-apiserver/
+
+    sed -i "s/NAMESPACE/${NS}/g" ./servicebroker-apiserver/serviceaccounts-and-roles-and-bindings.yaml
+
+    oc create -f servicebroker-apiserver/serviceaccounts-and-roles-and-bindings.yaml
+
+(roles and bindings will fail to create, but three service accounts will be created successfullly.)
+
+============ Alternative for the last step ============
+
+
+	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:apiserver
+	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:controller-servicebroker
+	oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:kube-aggregator
+
+	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:aggregator:apiserver
+	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:aggregator:controller-servicebroker
+
+=========== Create 3 pods =============
+
+    # namespace NS may need modified
+    NS=aggregator
+    SVC=kube-aggregator
+    
+    cp servicebroker-apiserver/templates/apiserver.yaml  servicebroker-apiserver/
+    cp servicebroker-apiserver/templates/controller.yaml  servicebroker-apiserver/
+    cp servicebroker-apiserver/templates/kube-arrgregator.yaml  servicebroker-apiserver/
+
+    sed -i "s/kube-aggregator.aggregator.svc/${SVC}.${NS}.svc/g" ./servicebroker-apiserver/controller.yaml
+    
+    oc create -f servicebroker-apiserver/apiserver.yaml
+    oc create -f servicebroker-apiserver/controller.yaml
+    oc create -f servicebroker-apiserver/kube-arrgregator.yaml
+
+    # also create an example service broker
+    oc create -f servicebroker-example/
+
+=========== register api server as an APIService ===============
+
+(enter the kube aggregator pod)
+(D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY is the result of `oc whoami -t`)
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/apiregistration.k8s.io/v1beta1/apiservices
+        
+
+export APISERVER_CACERT=$( base64 ca-apiserver/ca.pem | tr -d '\n' )
+echo $APISERVER_CACERT
+
+(replace the following CABOUNDLE as the above output)
+
+(
+cat <<EOF
+{
+    "apiVersion": "apiregistration.k8s.io/v1beta1",
+    "kind": "APIService",
+    "metadata": {
+        "labels": {
+            "api": "apiserver-servicebroker",
+            "apiserver": "true"
+        },
+        "name": "v1.prd.asiainfo.com"
+    },
+    "spec": {
+        "caBundle": "CABOUNDLE",
+        "group": "prd.asiainfo.com",
+        "groupPriorityMinimum": 2000,
+        "service": {
+            "name": "apiserver-servicebroker",
+            "namespace": "aggregator"
+        },
+        "version": "v1",
+        "versionPriority": 10
+    }
+}
+EOF
+) > apiservice-service-brokers.json
+
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -H "Content-Type: application/json; charset=utf-8" \
+        -X POST https://localhost:8443/apis/apiregistration.k8s.io/v1beta1/apiservices \
+        -d @apiservice-service-brokers.json
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/servicebrokers
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingservices
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances
+
+=================== register example service broker ====================
+
+(enter the kube aggregator pod)
+
+
+
+(
+cat <<EOF
+{
+    "apiVersion": "prd.asiainfo.com/v1",
+    "kind": "ServiceBroker",
+    "metadata": {
+        "name": "servicebroker-example"
+    },
+    "spec": {
+        "url": "http://servicebroker-example:33333",
+        "name": "example",
+        "username": "user",
+        "password": "pass"
+    }
+}
+EOF
+) > servicebroker-example.json
+
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -H "Content-Type: application/json; charset=utf-8" \
+        -X POST https://localhost:8443/apis/prd.asiainfo.com/v1/servicebrokers \
+        -d @servicebroker-example.json
+
+# the following command should list a MySQL backing service
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/servicebrokers
+        
+=================== create a MySQL backing service instance ====================
+
+(enter the kube aggregator pod)
+
+
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -H "Content-Type: application/json; charset=utf-8" \
+        -X POST https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances \
+        -d '{"metadata": {"name": "mysql-test"}, "spec": {
+		"provisioning": {"backingservice_name": "MySQL", "backingservice_plan_guid": "476217c3-110c-4b88-b43a-74d5b91b8643"}}}'
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances
+
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+	-X DELETE https://localhost:8443/oapi/v1/namespaces/test1/backingserviceinstances/mysql-test
+	
+	
+

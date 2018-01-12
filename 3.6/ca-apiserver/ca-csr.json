@@ -1,0 +1,16 @@
+{
+    "CN": "Asiainfo PRD",
+    "key": {
+        "algo": "rsa",
+        "size": 2048
+    },
+    "names": [
+        {
+            "C": "CN",
+            "L": "BJ",
+            "O": "Asiainfo",
+            "ST": "Beijing",
+            "OU": "PRD"
+        }
+    ]
+}

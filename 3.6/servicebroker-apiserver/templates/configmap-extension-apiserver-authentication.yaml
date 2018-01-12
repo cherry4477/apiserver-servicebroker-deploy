@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: extension-apiserver-authentication
+  namespace: kube-system
+data:
+  client-ca-file: |
+    OPENSHIFT-CA
+  requestheader-allowed-names: '["system:openshift-aggregator"]'
+  requestheader-client-ca-file: |
+    REQUESTHEADER-CA
+  requestheader-extra-headers-prefix: '["X-Remote-Extra-"]'
+  requestheader-group-headers: '["X-Remote-Group"]'
+  requestheader-username-headers: '["X-Remote-User"]'

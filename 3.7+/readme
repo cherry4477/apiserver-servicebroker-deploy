@@ -1,0 +1,84 @@
+Install cfssl and cfssljson:
+	
+	curl -s -L -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
+	curl -s -L -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+	chmod +x cfssl
+	chmod +x cfssljson
+
+	# it is best to put cfssl and cfssljson in PATH
+
+	# If the two files doesn't work. It is best to rebuid them from source.
+	# go get github.com/cloudflare/cfssl
+
+Create ETCD cluster.
+
+	# This is a single node etcd.
+	# It is best to create a 3 or 5 nodes cluster.
+	oc create -f ./etcd
+	
+	# below apiserver.yaml needs the ETCD infomation
+
+Create yamls.
+
+	# namespace NS may need modified
+	export NS=broker-api-server
+	
+	# don't change these
+	export SVC=apiserver-servicebroker
+	
+	# create API server key+certificate
+	export DOMAINS=\"${SVC}.${NS}\",\"${SVC}.${NS}.svc\"
+	# export HOSTS=$(echo "$DOMAINS" | tr -d '"')
+	export CA="-ca=ca/ca.pem -ca-key=ca/ca-key.pem -config=ca/ca-config.json -profile=server"
+	
+	echo \{\"CN\":\"${SVC}\",\"hosts\":[${DOMAINS}],\"key\":\{\"algo\":\"rsa\",\"size\":2048\}\} > apiserver.json
+	
+	cat apiserver.json | cfssl gencert ${CA} - | cfssljson -bare apiserver
+	
+	# move key+certificate
+	mkdir -p ./servicebroker-apiserver/cert
+	mv apiserver* ./servicebroker-apiserver/cert
+	
+	# create secret, which will be mounted in the api server pod
+	oc create secret generic apiserver-servicebroker -n ${NS} \
+		--from-file=./servicebroker-apiserver/cert/apiserver.pem \
+		--from-file=./servicebroker-apiserver/cert/apiserver-key.pem
+
+	# create yamls from templates
+	cp -f ./servicebroker-apiserver/templates/* ./servicebroker-apiserver
+	
+	export CACERT=$( base64 ca/ca.pem | tr -d '\n' )
+	sed -i "s/CACERT/${CACERT}/g" ./servicebroker-apiserver/apiservice.yaml
+	sed -i "s/NAMESPACE/${NS}/g" ./servicebroker-apiserver/apiservice.yaml
+	sed -i "s/NAMESPACE/${NS}/g" ./servicebroker-apiserver/serviceaccounts-and-roles-and-bindings.yaml
+
+	#
+	# Set ETCD info as arguments in ./servicebroker-apiserver/apiserver.yaml
+	#
+
+Create API server and manager controller.
+
+	# create role bindings for api server and controller
+	oc create -f ./servicebroker-apiserver/serviceaccounts-and-roles-and-bindings.yaml
+	
+	# create api server
+	oc create -f ./servicebroker-apiserver/apiserver.yaml
+	
+	# register api server
+	oc create -f ./servicebroker-apiserver/apiservice.yaml
+	
+	# create controller manager
+	oc create -f ./servicebroker-apiserver/controller.yaml
+
+Uninstall
+	
+	oc delete -f ./servicebroker-apiserver/apiserver.yaml
+	
+	oc delete -f ./servicebroker-apiserver/apiservice.yaml
+	
+	oc delete -f ./servicebroker-apiserver/controller.yaml
+
+	oc delete secret apiserver-servicebroker -n ${NS}
+	
+	oc delete -f ./servicebroker-apiserver/serviceaccounts-and-roles-and-bindings.yaml
+

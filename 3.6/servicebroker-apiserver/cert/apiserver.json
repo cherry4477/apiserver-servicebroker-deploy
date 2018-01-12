@@ -1,0 +1,1 @@
+{"CN":"apiserver-servicebroker","hosts":["apiserver-servicebroker.aggregator","apiserver-servicebroker.aggregator.svc"],"key":{"algo":"rsa","size":2048}}

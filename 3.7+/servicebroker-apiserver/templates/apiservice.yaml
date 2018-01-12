@@ -1,0 +1,18 @@
+apiVersion: apiregistration.k8s.io/v1beta1
+kind: APIService
+metadata:
+  name: v1.prd.asiainfo.com
+  labels:
+    api: apiserver-servicebroker
+    apiserver: "true"
+spec:
+  version: v1
+  group: prd.asiainfo.com
+  groupPriorityMinimum: 2000
+  priority: 200
+  service:
+    name: apiserver-servicebroker
+    namespace: NAMESPACE
+  versionPriority: 10
+  caBundle: "CACERT"
+

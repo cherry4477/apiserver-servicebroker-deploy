@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: List
+items:
+
+- apiVersion: apps/v1beta1
+  kind: Deployment
+  metadata:
+    name: controller-servicebroker
+    labels:
+      api: controller-servicebroker
+      apiserver: "true"
+  spec:
+    replicas: 1
+    template:
+      metadata:
+        labels:
+          api: controller-servicebroker
+          apiserver: "true"
+      spec:
+        serviceAccountName: "controller-servicebroker"
+        containers:
+        - name: controller
+          image: registry.new.dataos.io/datafoundry/apiserver-servicebroker:latest
+          command:
+          - "./controller-manager"
+          args:
+          resources:
+            requests:
+              cpu: 100m
+              memory: 200Mi
+
+
