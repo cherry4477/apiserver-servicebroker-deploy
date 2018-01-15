@@ -27,7 +27,7 @@ items:
           - name: AGGREGATOR_HOST
             value: kube-aggregator.aggregator.svc
           - name: AGGREGATOR_PORT
-            value: 443
+            value: "443"
           resources:
             requests:
               cpu: 100m
