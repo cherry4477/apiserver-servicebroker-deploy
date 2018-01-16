@@ -58,8 +58,8 @@ items:
           - "--secure-port=8443"
           - "--tls-cert-file=/aggregator.local.config/certificates/aggregator.pem"
           - "--tls-private-key-file=/aggregator.local.config/certificates/aggregator-key.pem"
-          - "--proxy-client-cert-file=/requestheader.local.config/certificates/ca.pem"
-          - "--proxy-client-key-file=/requestheader.local.config/certificates/ca-key.pem"
+          - "--proxy-client-cert-file=/requestheader.local.config/certificates/aggregator.pem"
+          - "--proxy-client-key-file=/requestheader.local.config/certificates/aggregator-key.pem"
           resources:
             requests:
               cpu: 100m
