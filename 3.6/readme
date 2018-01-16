@@ -175,8 +175,12 @@ curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY
 
 export APISERVER_CACERT=$( base64 ca-apiserver/ca.pem | tr -d '\n' )
 echo $APISERVER_CACERT
-
 (replace the following CABOUNDLE as the above output)
+
+NS=aggregator
+echo $NS
+(replace the following NAMESPACE as the above output)
+
 
 (
 cat <<EOF
@@ -196,7 +200,7 @@ cat <<EOF
         "groupPriorityMinimum": 2000,
         "service": {
             "name": "apiserver-servicebroker",
-            "namespace": "aggregator"
+            "namespace": "NAMESPACE"
         },
         "version": "v1",
         "versionPriority": 10
@@ -210,6 +214,12 @@ curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY
         -H "Content-Type: application/json; charset=utf-8" \
         -X POST https://localhost:8443/apis/apiregistration.k8s.io/v1beta1/apiservices \
         -d @apiservice-service-brokers.json
+		
+		(if error happens, delete it and before retry the above curl:
+				curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+				-H "Content-Type: application/json; charset=utf-8" \
+				-X DELETE https://localhost:8443/apis/apiregistration.k8s.io/v1beta1/apiservices/v1.prd.asiainfo.com
+		)
 
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
         -X GET https://localhost:8443/apis/prd.asiainfo.com
