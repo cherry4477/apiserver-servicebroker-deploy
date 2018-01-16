@@ -173,13 +173,14 @@ curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY
         -X GET https://localhost:8443/apis/apiregistration.k8s.io/v1beta1/apiservices
         
 
-export APISERVER_CACERT=$( base64 ca-apiserver/ca.pem | tr -d '\n' )
-echo $APISERVER_CACERT
-(replace the following CABOUNDLE as the above output)
+	export APISERVER_CACERT=$( base64 ca-apiserver/ca.pem | tr -d '\n' )
+	echo $APISERVER_CACERT
+	(replace the following CABOUNDLE as the above output)
 
-NS=aggregator
-echo $NS
-(replace the following NAMESPACE as the above output)
+	# namespace NS may need modified
+	NS=aggregator
+	echo $NS
+	(replace the following NAMESPACE as the above output)
 
 
 (
@@ -233,9 +234,6 @@ curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
         -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingservices
 
-curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
-        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances
-
 =================== register example service broker ====================
 
 (enter the kube aggregator pod)
@@ -270,23 +268,28 @@ curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
         -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/servicebrokers
         
+curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingservices
+        
 =================== create a MySQL backing service instance ====================
 
 (enter the kube aggregator pod)
 
 
+# namespace NS may need modified
+NS=aggregator
+
 
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
         -H "Content-Type: application/json; charset=utf-8" \
-        -X POST https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances \
-        -d '{"metadata": {"name": "mysql-test"}, "spec": {
-		"provisioning": {"backingservice_name": "MySQL", "backingservice_plan_guid": "476217c3-110c-4b88-b43a-74d5b91b8643"}}}'
+        -X POST https://localhost:8443/apis/prd.asiainfo.com/v1/namespaces/$NS/backingserviceinstances \
+        -d '{"metadata": {"name": "mysql-test"}, "spec": {"provisioning": {"backingservice_name": "MySQL", "backingservice_plan_guid": "476217c3-110c-4b88-b43a-74d5b91b8643"}}}'
 
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
-        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/backingserviceinstances
+        -X GET https://localhost:8443/apis/prd.asiainfo.com/v1/namespaces/$NS/backingserviceinstances
 
 curl -k -i -H "Authorization: Bearer D2jmiGVVOHbR56b9cIYq2Ax4l6l_YCLA8sRe6AJjQKY" \
-	-X DELETE https://localhost:8443/oapi/v1/namespaces/test1/backingserviceinstances/mysql-test
+	-X DELETE https://localhost:8443/oapi/v1/namespaces/test1/namespaces/$NS/backingserviceinstances/mysql-test
 	
 	
 
