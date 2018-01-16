@@ -58,7 +58,7 @@ items:
           - "--audit-log-path=-"
           - "--audit-log-maxage=0"
           - "--audit-log-maxbackup=0"
-          - "--requestheader-client-ca-file=/requestheader-ca.local.config/certificates/ca-requestheader.pem"
+          - "--requestheader-client-ca-file=/requestheader-ca.local.config/certificates/ca.pem"
           - "--requestheader-username-headers=X-Remote-User"
           - "--requestheader-group-headers=X-Remote-Group"
           - "--requestheader-extra-headers-prefix=X-Remote-Extra-"
