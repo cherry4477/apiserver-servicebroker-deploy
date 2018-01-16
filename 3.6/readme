@@ -96,6 +96,12 @@ NS=aggregator
 		--from-file=./servicebroker-apiserver/cert/$KEYNAME.pem \
 		--from-file=./servicebroker-apiserver/cert/$KEYNAME-key.pem
 
+	# create secrect for requestheader (aggregator as client) key and certificate
+	KEYNAME=requestheader-ca
+	oc create secret generic $KEYNAME -n ${NS} \
+		--from-file=./ca-requestheader/ca.pem \
+		--from-file=./ca-requestheader/ca-key.pem
+
 ============ create configmap extension-apiserver-authentication ===============
 
 This configmap will be used by apiserver and aggregator.
