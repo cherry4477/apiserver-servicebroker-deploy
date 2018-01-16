@@ -48,7 +48,7 @@ items:
             mountPath: /requestheader-ca.local.config/certificates
             readOnly: true
           command:
-          - "./apiserver"
+          - "kube-aggregator/kube-aggregator"
           args:
           - "--etcd-servers=http://etcd-for-apiserver:2379"
           - "--etcd-prefix=/registry/asiainfo.com"

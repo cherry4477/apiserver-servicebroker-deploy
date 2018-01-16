@@ -131,18 +131,21 @@ modify some fileds in servicebroker-apiserver/configmap-extension-apiserver-auth
 
 ============ Alternative for the last step ============
 
+	# namespace NS may need modified
+	NS=aggregator
 
-	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:apiserver
-	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:controller-servicebroker
-	oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:aggregator:kube-aggregator
+	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:${NS}:apiserver
+	# oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:${NS}:controller-servicebroker
+	oc adm policy add-cluster-role-to-user cluster-reader system:serviceaccount:${NS}:kube-aggregator
 
-	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:aggregator:apiserver
-	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:aggregator:controller-servicebroker
+	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:${NS}:apiserver
+	oc adm policy add-cluster-role-to-user cluster-admin system:serviceaccount:${NS}:controller-servicebroker
 
 =========== Create 3 pods =============
 
     # namespace NS may need modified
     NS=aggregator
+    
     SVC=kube-aggregator
     
     cp servicebroker-apiserver/templates/apiserver.yaml  servicebroker-apiserver/
